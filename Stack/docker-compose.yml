@@ -1,0 +1,94 @@
+version: '3.8'
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    network: host
+  environment:
+    - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres_dw:5432/airflow_metadata
+    - AIRFLOW__LOGGING__LOGGING_LEVEL=INFO
+    - AIRFLOW__CORE__FERNET_KEY=v1Sg77_fV8_kHj7S8Z0C-BwXdfGhJKlMnOpQrStUvWx=
+    - AIRFLOW__CORE__LOAD_EXAMPLES=false
+    - AIRFLOW__WEBSERVER__SECRET_KEY=secret_key_aes_market
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+  user: "50000:0"
+  depends_on:
+    postgres_dw:
+      condition: service_healthy
+
+services:
+  # Base de données Data Warehouse & Metadata Airflow
+  postgres_dw:
+    image: postgres:15-alpine
+    container_name: aes_postgres_dw
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # Base de données Source (Application Tassouma OLTP)
+  mysql_oltp:
+    image: mysql:8.0
+    container_name: aes_mysql_oltp
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=tassouma_oltp
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    restart: always
+
+  # Initialiseur automatique de base de données (Exécution unique)
+  airflow-init:
+    <<: *airflow-common
+    container_name: aes_airflow_init
+    command: version
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres_dw:5432/airflow_metadata
+      - AIRFLOW__LOGGING__LOGGING_LEVEL=INFO
+      - AIRFLOW__CORE__FERNET_KEY=v1Sg77_fV8_kHj7S8Z0C-BwXdfGhJKlMnOpQrStUvWx=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__WEBSERVER__SECRET_KEY=secret_key_aes_market
+      - _AIRFLOW_DB_UPGRADE=true
+      - _WWW_USER_CREATE=true
+      - _WWW_USER_USERNAME=airflow
+      - _WWW_USER_PASSWORD=airflow
+
+  # Interface Web
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: aes_airflow_webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: always
+
+  # Scheduler Airflow
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: aes_airflow_scheduler
+    command: scheduler
+    deploy:
+      resources:
+        limits:
+          memory: 4G
