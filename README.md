@@ -9,6 +9,12 @@ docker compose up -d --build
 # Vérifier le statut des conteneurs
 docker compose ps
 
+#importer le fichier dump
+docker exec -i aes_mysql_oltp mysql -u root -p"password" tassouma_oltp < projetbi.sql
+#verifier les tables
+docker exec -it aes_mysql_oltp mysql -u root -p"password" -e "SHOW TABLES FROM tassouma_oltp;"
+#supprimer une table par exemple
+docker exec -it aes_mysql_oltp mysql -u root -p"password" -e "DROP TABLE IF EXISTS tassouma_oltp.core_vente;"
 # Orchestration et Tests Rapiéde (Airflow CLI)
 # Étape A : Vider le cache et réinitialiser les statuts du DAG
 docker exec -it aes_airflow_scheduler airflow tasks clear -d dag_bi_global_aes_market -X -R
@@ -55,3 +61,8 @@ docker exec -it mysql_oltp mysql -u root -p'password' tassouma_oltp -e "SHOW TAB
 # docker exec -it aes_airflow_scheduler bash
 
 # docker exec -it aes_airflow_scheduler airflow dags list
+
+#CREER DIRECTEMENT LA BD DANS SUPERSET
+docker exec -it aes_bi_superset superset set-database-uri \
+  --database_name "PostgreSQL_DW" \
+  --uri "postgresql+psycopg2://postgres:postgres@aes_postgres_dw:5432/airflow_metadata"

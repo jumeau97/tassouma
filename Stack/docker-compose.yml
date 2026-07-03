@@ -3,7 +3,9 @@ version: '3.8'
 x-airflow-common: &airflow-common
   build:
     context: .
-    network: host
+  # Suppression du network: host ici pour intégrer le réseau partagé
+  networks:
+    - aes_network
   environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres_dw:5432/airflow_metadata
@@ -32,6 +34,8 @@ services:
       - ./postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    networks:
+      - aes_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -50,6 +54,8 @@ services:
       - ./mysql_data:/var/lib/mysql
     ports:
       - "3306:3306"
+    networks:
+      - aes_network
     restart: always
 
   # Initialiseur automatique de base de données (Exécution unique)
@@ -69,7 +75,7 @@ services:
       - _WWW_USER_USERNAME=airflow
       - _WWW_USER_PASSWORD=airflow
 
-  # Interface Web
+  # Interface Web Airflow
   airflow-webserver:
     <<: *airflow-common
     container_name: aes_airflow_webserver
@@ -92,3 +98,28 @@ services:
       resources:
         limits:
           memory: 4G
+
+  # Plateforme BI Apache Superset
+  superset:
+    image: apache/superset:latest
+    container_name: aes_bi_superset
+    ports:
+      - "8088:8088"
+    environment:
+      SUPERSET_SECRET_KEY: "votre_cle_secrete_super_securisee_aes_2026"
+    networks:
+      - aes_network
+    volumes:
+      - superset_home:/app/superset_home
+      # Injection automatique et propre du pilote via le mécanisme officiel
+      - ./requirements-local.txt:/app/docker/requirements-local.txt
+    depends_on:
+      postgres_dw:
+        condition: service_healthy
+
+volumes:
+  superset_home:
+
+networks:
+  aes_network:
+    driver: bridge
