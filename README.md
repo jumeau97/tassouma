@@ -66,3 +66,11 @@ docker exec -it mysql_oltp mysql -u root -p'password' tassouma_oltp -e "SHOW TAB
 docker exec -it aes_bi_superset superset set-database-uri \
   --database_name "PostgreSQL_DW" \
   --uri "postgresql+psycopg2://postgres:postgres@aes_postgres_dw:5432/airflow_metadata"
+
+#   Le terme DAG signifie Directed Acyclic Graph (Graphe Orienté Acyclique).
+
+#   En clair, pour la DSI et l'équipe BI, le DAG est le chef d'orchestre automatisé de toute votre plateforme Data. C'est lui qui s'assure que les scripts s'exécutent tout seuls, dans le bon ordre, à la bonne heure, et qui vous alerte en cas de panne.
+
+# Problématique : Les données de ventes, de stocks et d'achats sont cloisonnées par boutique ou par pays. La direction n'a pas de vision consolidée et instantanée des performances.
+
+# Objectif BI : Mettre en place un entrepôt de données (Data Warehouse) centralisé et automatiser un pipeline ETL nocturne pour alimenter des dashboards visuels et interactifs sous Apache Superset.
